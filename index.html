@@ -267,14 +267,23 @@ const savedLabel = $('#savedLabel');
 const placeholderSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9C.5 7.5 3 4 6.5 4 9 4 11 6 12 7.5 13 6 15 4 17.5 4 21 4 23.5 7.5 21.5 12 19 16.5 12 21 12 21z" opacity="0"/><path d="M4 15c0-5 3.5-9 8-9s8 4 8 9"/><path d="M12 21V9"/></svg>`;
 
 // ---------- Imagens remotas (modo alojado) ----------
-// No modo automático as imagens vêm de uma pasta "imagens/" ao lado do catalogo.html,
-// com o nome do ficheiro igual ao Código (ex: imagens/AABECIN.jpg).
+// No modo automático as imagens vêm de uma pasta "imagens/" (ou variantes de maiúsculas)
+// ao lado do catalogo.html, com o nome do ficheiro igual ao Código (ex: imagens/AABECIN.jpg).
 const REMOTE_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+const REMOTE_FOLDERS = ['imagens', 'Imagens', 'IMAGENS'];
+function remoteCandidates(codigo){
+  const list = [];
+  REMOTE_FOLDERS.forEach(folder => {
+    REMOTE_EXTS.forEach(ext => list.push(`${folder}/${codigo}.${ext}`));
+  });
+  return list;
+}
 window.imgFallback = function(el, codigo){
+  const candidates = remoteCandidates(codigo);
   const i = (parseInt(el.dataset.tryIndex || '0', 10)) + 1;
-  if (i < REMOTE_EXTS.length){
+  if (i < candidates.length){
     el.dataset.tryIndex = i;
-    el.src = `imagens/${codigo}.${REMOTE_EXTS[i]}`;
+    el.src = candidates[i];
   } else {
     el.parentElement.innerHTML = placeholderSVG;
   }
