@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo de Artigos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#172A20;
+    --paper:#EEF2EA;
+    --card:#FFFFFF;
+    --line:#D7DED0;
+    --plum:#6E2F4B;
+    --plum-dark:#571F3B;
+    --gold:#C89B3C;
+    --muted:#5C6B5F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important;}
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    padding:20px clamp(16px,4vw,40px) 16px;
+  }
+  .title-row{
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-optical-sizing:auto;
+    font-size:clamp(24px,3.4vw,34px);
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  #count{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--muted);
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:99px;
+    padding:4px 12px;
+  }
+  .controls{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .file-btn{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600;
+    padding:9px 14px; border-radius:8px;
+    background:var(--card); border:1px solid var(--line);
+    color:var(--ink); cursor:pointer; white-space:nowrap;
+  }
+  .file-btn:hover{border-color:var(--plum); color:var(--plum);}
+  .file-btn.done{border-color:var(--gold); color:var(--plum-dark); background:#FBF6E9;}
+  .file-btn input{display:none;}
+  .file-btn svg{width:15px;height:15px;flex:none;}
+
+  #search{
+    flex:1 1 220px; min-width:180px;
+    font-family:'Inter',sans-serif; font-size:14px;
+    padding:9px 14px; border-radius:8px;
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+  }
+  #search:focus, select:focus, .file-btn:focus-within{
+    outline:2px solid var(--plum); outline-offset:1px;
+  }
+  select{
+    font-family:'Inter',sans-serif; font-size:13.5px;
+    padding:9px 12px; border-radius:8px;
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+  }
+  .toggle{
+    display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;
+    font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;
+  }
+  .toggle button{
+    border:none; background:var(--card); color:var(--muted);
+    padding:9px 12px; cursor:pointer;
+  }
+  .toggle button.active{background:var(--plum); color:#fff;}
+
+  /* ---------- Mobile / Android ---------- */
+  @media (max-width: 640px){
+    header{padding:14px 14px 12px;}
+    .title-row{margin-bottom:10px;}
+    h1{font-size:22px;}
+    .controls{flex-direction:column; align-items:stretch; gap:8px;}
+    .file-btn, #search, select{width:100%; padding:12px 14px; font-size:15px;}
+    .toggle{width:100%;}
+    .toggle button{flex:1; padding:12px;}
+    #grid{grid-template-columns:repeat(auto-fill, minmax(44vw,1fr)); gap:12px;}
+    main{padding:16px 14px 50px;}
+    .saved-row{font-size:11px;}
+  }
+  .android-hint{
+    display:none;
+    font-family:'Inter',sans-serif; font-size:12.5px; color:var(--muted);
+    background:#FBF6E9; border:1px solid var(--gold); border-radius:8px;
+    padding:8px 12px; margin-top:10px; line-height:1.5;
+  }
+  .android-hint.show{display:block;}
+
+  /* ---------- Empty state ---------- */
+  #empty{
+    max-width:560px; margin:60px auto; text-align:center;
+    padding:0 20px;
+  }
+  #empty h2{
+    font-family:'Fraunces',serif; font-weight:500; font-size:22px; margin-bottom:10px;
+  }
+  #empty p{color:var(--muted); line-height:1.6; font-size:14.5px;}
+  #empty ol{
+    text-align:left; display:inline-block; margin:18px auto 0;
+    color:var(--ink); font-size:14.5px; line-height:2;
+  }
+
+  /* ---------- Grid ---------- */
+  main{padding:24px clamp(16px,4vw,40px) 60px;}
+  #grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(190px,1fr));
+    gap:18px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .thumb{
+    aspect-ratio:1/1; width:100%;
+    background:#E4E9E0;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .thumb svg{width:34%; height:34%; color:#AEBDA9;}
+
+  .body{padding:12px 13px 14px; display:flex; flex-direction:column; gap:6px; flex:1;}
+  .cat{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;
+    color:var(--gold); text-transform:uppercase; letter-spacing:.04em;
+  }
+  .desc{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:14px; line-height:1.3;
+    color:var(--ink); min-height:2.6em;
+  }
+  .codigo{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted);
+  }
+  .price-row{
+    margin-top:auto; padding-top:8px;
+    display:flex; align-items:center; justify-content:flex-start;
+  }
+  .tag{
+    position:relative;
+    background:var(--plum); color:#fff;
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13.5px;
+    padding:6px 12px 6px 18px;
+    clip-path:polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%);
+  }
+  .tag::after{
+    content:''; position:absolute; left:4px; top:50%; transform:translateY(-50%);
+    width:5px; height:5px; border-radius:50%; background:var(--card);
+  }
+  .tag small{display:block; font-weight:500; font-size:9.5px; opacity:.75; margin-top:1px;}
+  .noprice{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); font-style:italic;
+  }
+
+  #noresults{
+    text-align:center; color:var(--muted); padding:60px 0; font-size:14.5px; display:none;
+  }
+
+  .saved-row{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--muted);
+  }
+  .saved-row .dot{width:6px; height:6px; border-radius:50%; background:var(--gold); flex:none;}
+  .clear-btn{
+    background:none; border:none; color:var(--plum); text-decoration:underline;
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; cursor:pointer; padding:0;
+  }
+  .clear-btn:hover{color:var(--plum-dark);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1>Catálogo de Artigos</h1>
+    <span id="count" hidden></span>
+  </div>
+  <div class="controls">
+    <label class="file-btn" id="excelBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span id="excelLabel">Carregar Excel</span>
+      <input type="file" id="excelInput" accept=".xlsx,.xls">
+    </label>
+    <label class="file-btn" id="imgBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <span id="imgLabel">Carregar imagens</span>
+      <input type="file" id="imgInput" multiple accept="image/*" webkitdirectory>
+    </label>
+    <input type="search" id="search" placeholder="Pesquisar por código ou descrição…" disabled>
+    <select id="categoria" disabled><option value="">Todas as categorias</option></select>
+    <div class="toggle">
+      <button id="ivaOn" class="active" type="button">C/ IVA</button>
+      <button id="ivaOff" type="button">S/ IVA</button>
+    </div>
+  </div>
+  <div class="saved-row" id="savedRow" hidden>
+    <span class="dot"></span>
+    <span id="savedLabel"></span>
+    <button class="clear-btn" id="clearBtn" type="button">Limpar dados guardados</button>
+  </div>
+  <div class="android-hint" id="androidHint">
+    📱 Estás no Android: quando fores carregar as fotos, escolhe-as através da app <strong>Ficheiros</strong> (não a Galeria/Fotos) — assim os nomes dos ficheiros mantêm-se iguais ao código, o que é essencial para a correspondência funcionar. Seleciona todas as fotos de uma vez (podes marcar várias com toque longo).
+  </div>
+</header>
+
+<main>
+  <div id="empty">
+    <h2>Começa por carregar os teus dados</h2>
+    <p>A app corre inteiramente no browser. Se a abriste diretamente de um ficheiro no computador, carrega os dados manualmente abaixo (ficam guardados para a próxima vez). Se a estás a aceder através de um link online e não encontrou os ficheiros automaticamente, verifica se <code>Artigos.xlsx</code> e a pasta <code>imagens/</code> estão junto ao <code>index.html</code>.</p>
+    <ol>
+      <li>Carrega o ficheiro Excel (Código, Descrição, Preços, Categoria)</li>
+      <li>Carrega a pasta com as fotos (o nome do ficheiro deve ser igual ao Código, ex: AABECIN.jpg)</li>
+    </ol>
+  </div>
+  <div id="grid"></div>
+  <div id="noresults">Nenhum artigo encontrado.</div>
+</main>
+
+<script>
+const state = { rows: [], images: new Map(), showComIva: true, mode: 'manual' };
+
+const $ = (sel) => document.querySelector(sel);
+const grid = $('#grid');
+const emptyState = $('#empty');
+const noResults = $('#noresults');
+const searchInput = $('#search');
+const categoriaSelect = $('#categoria');
+const countEl = $('#count');
+const savedRow = $('#savedRow');
+const savedLabel = $('#savedLabel');
+
+const placeholderSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9C.5 7.5 3 4 6.5 4 9 4 11 6 12 7.5 13 6 15 4 17.5 4 21 4 23.5 7.5 21.5 12 19 16.5 12 21 12 21z" opacity="0"/><path d="M4 15c0-5 3.5-9 8-9s8 4 8 9"/><path d="M12 21V9"/></svg>`;
+
+// ---------- Imagens remotas (modo alojado) ----------
+// No modo automático as imagens vêm de uma pasta "imagens/" ao lado do catalogo.html,
+// com o nome do ficheiro igual ao Código (ex: imagens/AABECIN.jpg).
+const REMOTE_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+window.imgFallback = function(el, codigo){
+  const i = (parseInt(el.dataset.tryIndex || '0', 10)) + 1;
+  if (i < REMOTE_EXTS.length){
+    el.dataset.tryIndex = i;
+    el.src = `imagens/${codigo}.${REMOTE_EXTS[i]}`;
+  } else {
+    el.parentElement.innerHTML = placeholderSVG;
+  }
+};
+
+// ---------- Persistência (IndexedDB) ----------
+const DB_NAME = 'catalogoArtigosDB';
+const DB_VERSION = 1;
+let dbPromise = null;
+
+function openDB(){
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
+      if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+
+async function idbSet(store, key, value){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbGet(store, key){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGetAllImages(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('images', 'readonly');
+    const store = tx.objectStore('images');
+    const keysReq = store.getAllKeys();
+    const valsReq = store.getAll();
+    tx.oncomplete = () => resolve({ keys: keysReq.result, vals: valsReq.result });
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbClearAll(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['meta', 'images'], 'readwrite');
+    tx.objectStore('meta').clear();
+    tx.objectStore('images').clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function persistRows(rows, excelName){
+  await idbSet('meta', 'catalogData', { rows, excelName, savedAt: Date.now() });
+}
+
+async function persistImages(files){
+  for (const f of files){
+    const stem = f.name.replace(/\.[^.]+$/, '').toUpperCase();
+    await idbSet('images', stem, f); // File é um Blob, guarda-se diretamente
+  }
+  await idbSet('meta', 'imagesSavedAt', Date.now());
+}
+
+function updateSavedRow(){
+  const rowsCount = state.rows.length;
+  const imgCount = state.images.size;
+  if (!rowsCount && !imgCount) { savedRow.hidden = true; return; }
+  savedRow.hidden = false;
+  const parts = [];
+  if (rowsCount) parts.push(`${rowsCount} artigos`);
+  if (imgCount) parts.push(`${imgCount} fotos`);
+  savedLabel.textContent = `Guardado neste browser: ${parts.join(' · ')}`;
+}
+
+async function loadFromDB(){
+  const meta = await idbGet('meta', 'catalogData');
+  if (meta && meta.rows && meta.rows.length){
+    state.rows = meta.rows;
+    $('#excelBtn').classList.add('done');
+    $('#excelLabel').textContent = `${state.rows.length} artigos carregados`;
+    const categorias = [...new Set(state.rows.map(r => r.categoria))].sort((a,b)=>a.localeCompare(b,'pt'));
+    categoriaSelect.innerHTML = '<option value="">Todas as categorias</option>' +
+      categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+    searchInput.disabled = false;
+    categoriaSelect.disabled = false;
+    emptyState.style.display = 'none';
+  }
+
+  const { keys, vals } = await idbGetAllImages();
+  if (keys && keys.length){
+    keys.forEach((k, i) => state.images.set(k, URL.createObjectURL(vals[i])));
+    $('#imgBtn').classList.add('done');
+    $('#imgLabel').textContent = `${keys.length} fotos carregadas`;
+  }
+
+  updateSavedRow();
+  if (state.rows.length) render();
+}
+
+$('#clearBtn').addEventListener('click', async () => {
+  if (!confirm('Apagar os dados guardados neste browser? Terás de voltar a carregar o Excel e as fotos.')) return;
+  await idbClearAll();
+  state.rows = [];
+  state.images.forEach(url => URL.revokeObjectURL(url));
+  state.images.clear();
+  $('#excelBtn').classList.remove('done');
+  $('#excelLabel').textContent = 'Carregar Excel';
+  $('#imgBtn').classList.remove('done');
+  $('#imgLabel').textContent = 'Carregar imagens';
+  searchInput.disabled = true;
+  categoriaSelect.disabled = true;
+  countEl.hidden = true;
+  emptyState.style.display = 'block';
+  grid.innerHTML = '';
+  noResults.style.display = 'none';
+  updateSavedRow();
+});
+
+// ---------- Excel: parsing partilhado ----------
+function parseWorkbookBuffer(buf){
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(ws, { defval: null });
+  return json
+    .map(r => ({
+      codigo: (r['Codigo'] ?? r['Código'] ?? '').toString().trim(),
+      descricao: (r['Descrição'] ?? r['Descricao'] ?? '').toString().trim(),
+      semIva: r['S/ Iva'],
+      comIva: r['C/ Iva'],
+      categoria: (r['Categoria'] ?? '').toString().trim() || 'Sem categoria'
+    }))
+    .filter(r => r.codigo);
+}
+
+function applyRows(rows){
+  state.rows = rows;
+  $('#excelBtn').classList.add('done');
+  $('#excelLabel').textContent = `${state.rows.length} artigos carregados`;
+  const categorias = [...new Set(state.rows.map(r => r.categoria))].sort((a,b)=>a.localeCompare(b,'pt'));
+  categoriaSelect.innerHTML = '<option value="">Todas as categorias</option>' +
+    categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+  searchInput.disabled = false;
+  categoriaSelect.disabled = false;
+  emptyState.style.display = 'none';
+}
+
+// ---------- Excel ----------
+$('#excelInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.mode = 'manual';
+  const buf = await file.arrayBuffer();
+  applyRows(parseWorkbookBuffer(buf));
+  render();
+  updateSavedRow();
+  persistRows(state.rows, file.name);
+});
+
+// ---------- Imagens ----------
+$('#imgInput').addEventListener('change', (e) => {
+  const files = [...e.target.files].filter(f => f.type.startsWith('image/'));
+  state.mode = 'manual';
+  files.forEach(f => {
+    const stem = f.name.replace(/\.[^.]+$/, '').toUpperCase();
+    state.images.set(stem, URL.createObjectURL(f));
+  });
+  $('#imgBtn').classList.add('done');
+  $('#imgLabel').textContent = `${files.length} fotos carregadas`;
+  render();
+  updateSavedRow();
+  persistImages(files);
+});
+
+// ---------- Filtros ----------
+searchInput.addEventListener('input', render);
+categoriaSelect.addEventListener('change', render);
+$('#ivaOn').addEventListener('click', () => setIva(true));
+$('#ivaOff').addEventListener('click', () => setIva(false));
+function setIva(comIva){
+  state.showComIva = comIva;
+  $('#ivaOn').classList.toggle('active', comIva);
+  $('#ivaOff').classList.toggle('active', !comIva);
+  render();
+}
+
+function formatPrice(v){
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (Number.isNaN(n)) return null;
+  return n.toFixed(2).replace('.', ',') + ' €';
+}
+
+function render(){
+  if (!state.rows.length) return;
+  const q = searchInput.value.trim().toLowerCase();
+  const cat = categoriaSelect.value;
+
+  const filtered = state.rows.filter(r => {
+    const matchQ = !q || r.codigo.toLowerCase().includes(q) || r.descricao.toLowerCase().includes(q);
+    const matchCat = !cat || r.categoria === cat;
+    return matchQ && matchCat;
+  });
+
+  countEl.hidden = false;
+  countEl.textContent = `${filtered.length} de ${state.rows.length} artigos`;
+
+  noResults.style.display = filtered.length ? 'none' : 'block';
+  grid.innerHTML = filtered.map(r => {
+    const price = formatPrice(state.showComIva ? r.comIva : r.semIva);
+    const priceLabel = state.showComIva ? 'c/ iva' : 's/ iva';
+    const thumbHTML = state.mode === 'auto'
+      ? `<img src="imagens/${r.codigo}.${REMOTE_EXTS[0]}" data-try-index="0" alt="${r.descricao}" loading="lazy" onerror="imgFallback(this,'${r.codigo}')">`
+      : (state.images.get(r.codigo.toUpperCase())
+          ? `<img src="${state.images.get(r.codigo.toUpperCase())}" alt="${r.descricao}" loading="lazy">`
+          : placeholderSVG);
+    return `
+      <div class="card">
+        <div class="thumb">${thumbHTML}</div>
+        <div class="body">
+          <span class="cat">${r.categoria}</span>
+          <span class="desc">${r.descricao}</span>
+          <span class="codigo">${r.codigo}</span>
+          <div class="price-row">
+            ${price
+              ? `<span class="tag">${price}<small>${priceLabel}</small></span>`
+              : `<span class="noprice">preço sob consulta</span>`}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+loadFromDB().catch(err => console.error('Não foi possível carregar dados guardados:', err));
+
+// ---------- Carregamento automático (quando a app está alojada online) ----------
+async function tryAutoLoad(){
+  if (!location.protocol.startsWith('http')) return false; // aberto como ficheiro local: sem fetch
+  try {
+    const res = await fetch(`Artigos.xlsx?v=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return false;
+    const buf = await res.arrayBuffer();
+    state.mode = 'auto';
+    applyRows(parseWorkbookBuffer(buf));
+
+    const lastMod = res.headers.get('Last-Modified');
+    savedRow.hidden = false;
+    savedLabel.textContent = lastMod
+      ? `Catálogo carregado automaticamente · atualizado em ${new Date(lastMod).toLocaleString('pt-PT')}`
+      : 'Catálogo carregado automaticamente do servidor';
+    $('#clearBtn').style.display = 'none';
+    $('#excelBtn').style.display = 'none';
+    $('#imgBtn').style.display = 'none';
+
+    render();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+tryAutoLoad().then(ok => {
+  if (!ok) loadFromDB().catch(err => console.error('Não foi possível carregar dados guardados:', err));
+});
+
+// ---------- Deteção de Android ----------
+if (/Android/i.test(navigator.userAgent)) {
+  document.getElementById('androidHint').classList.add('show');
+  // webkitdirectory não é suportado no Android — remove o atributo para
+  // garantir que o browser mostra sempre o seletor normal de múltiplos ficheiros.
+  const imgInput = document.getElementById('imgInput');
+  imgInput.removeAttribute('webkitdirectory');
+  imgInput.setAttribute('multiple', '');
+}
+</script>
+</body>
+</html>
